@@ -7,18 +7,19 @@ This documentation presents the architecture of a personal homelab with containe
 ## 1. Global Network Architecture
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#e1f5ff','primaryTextColor':'#000','primaryBorderColor':'#0288d1','lineColor':'#555','secondaryColor':'#ffe1f5','tertiaryColor':'#90EE90','noteTextColor':'#000','noteBkgColor':'#fff3cd'}}}%%
 graph TB
-    Internet([Internet])
+    WAN([WAN])
     ISP[ISP Router]
     Router[Main Router<br/>Managed Switch]
     Server1[Main Server<br/>x86-64]
-    Server2[ARM Server<br/>SBC 16GB RAM]
+    Server2[ARM Server<br/>SBC Aarch64]
     Orbi[WiFi Router<br/>Relay Mode]
     Satellite[WiFi Satellite]
     Devices[Wired Devices]
     WiFi[WiFi Devices]
     
-    Internet --> ISP
+    WAN --> ISP
     ISP --> Router
     Router --> Server1
     Router --> Server2
@@ -27,30 +28,36 @@ graph TB
     Orbi --> Satellite
     Satellite -.WiFi.-> WiFi
     
-    style Server1 fill:#e1f5ff
-    style Server2 fill:#ffe1f5
-    style Internet fill:#90EE90
+    style Server1 fill:#e1f5ff,stroke:#0288d1,stroke-width:2px,color:#000
+    style Server2 fill:#ffe1f5,stroke:#c2185b,stroke-width:2px,color:#000
+    style WAN fill:#90EE90,stroke:#388e3c,stroke-width:2px,color:#000
+    style ISP fill:#f5f5f5,stroke:#666,color:#000
+    style Router fill:#f5f5f5,stroke:#666,color:#000
+    style Orbi fill:#f5f5f5,stroke:#666,color:#000
+    style Satellite fill:#f5f5f5,stroke:#666,color:#000
+    style Devices fill:#f5f5f5,stroke:#666,color:#000
+    style WiFi fill:#f5f5f5,stroke:#666,color:#000
 ```
 
 ## 2. Services per Machine
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#e1f5ff','primaryTextColor':'#000','primaryBorderColor':'#0288d1','lineColor':'#555','secondaryColor':'#ffe1f5','tertiaryColor':'#fff4e1','noteTextColor':'#000'}}}%%
 graph TB
     subgraph Server1["🖥️ Main Server (x86-64)"]
         direction TB
         D1[DHCP - Backup]
         D2[DNS - Backup]
         D3[Reverse Proxy]
-        D4[Minecraft Server]
-        D5[Game Proxy]
-        D6[Discord Bot]
-        D7[Backup Service]
-        D8[Restore Service]
-        D9[VPN]
-        D10[File Sharing]
-        D11[Monitoring]
-        D12[Mass Storage]
-        D13[Fast Storage]
+        D4[Game Proxy]
+        D5[Discord Bot]
+        D6[Backup Service]
+        D7[Restore Service]
+        D8[VPN]
+        D9[File Sharing]
+        D10[Monitoring]
+        D11[Mass Storage]
+        D12[Fast Storage]
     end
     
     subgraph Server2["🔶 ARM Server (SBC)"]
@@ -59,10 +66,15 @@ graph TB
         O2[DNS - Master]
     end
     
-    subgraph Services["🌐 Exposed Web Services"]
-        S1[Penny Game - Web App]
-        S2[Pl3xmap - Minecraft Map]
-        S3[File Server<br/>with authentication]
+    subgraph Services1["🌐 Exposed Web Services"]
+        W1[Penny Game - Web App]
+        W2[Pl3xmap - Minecraft Map]
+        W3[File Server<br/>with authentication]
+    end
+    
+    subgraph Services2["🌐 Exposed Minecraft Servers"]
+        M1[Minecraft Server 1]
+        M2[Minecraft Server 2]
     end
     
     subgraph Future["📅 Future Services"]
@@ -70,22 +82,27 @@ graph TB
         F2[Personal Cloud]
     end
     
-    D3 --> S1
-    D3 --> S2
-    D3 --> S3
+    D3 --> W1
+    D3 --> W2
+    D3 --> W3
+
+    D4 --> M1
+    D4 --> M2
     
-    style Server1 fill:#e1f5ff
-    style Server2 fill:#ffe1f5
-    style Services fill:#fff4e1
-    style Future fill:#f0f0f0,stroke-dasharray: 5 5
+    style Server1 fill:#e1f5ff,stroke:#0288d1,stroke-width:2px,color:#000
+    style Server2 fill:#ffe1f5,stroke:#c2185b,stroke-width:2px,color:#000
+    style Services1 fill:#fff4e1,stroke:#f57c00,stroke-width:2px,color:#000
+    style Services2 fill:#fff4e1,stroke:#f57c00,stroke-width:2px,color:#000
+    style Future fill:#f0f0f0,stroke:#666,stroke-width:2px,stroke-dasharray: 5 5,color:#000
 ```
 
 ## 3. Data Flow and Communications
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#e1f5ff','primaryTextColor':'#000','primaryBorderColor':'#0288d1','lineColor':'#555','secondaryColor':'#ffe1f5','tertiaryColor':'#f5e1ff','noteTextColor':'#000'}}}%%
 graph LR
     subgraph External["🌍 External"]
-        Internet([Internet])
+        WAN([WAN])
         Remote[Remote<br/>Users]
     end
     
@@ -95,32 +112,34 @@ graph LR
         subgraph DHCP_HA["⚡ DHCP High Availability"]
             DHCP_M[DHCP Master<br/>ARM Server]
             DHCP_B[DHCP Backup<br/>x86 Server]
-            DHCP_M -.sync.-> DHCP_B
+            DHCP_M <-.sync.-> DHCP_B
         end
         
         subgraph DNS_HA["🔍 DNS High Availability"]
             DNS_M[DNS Master<br/>ARM Server]
             DNS_B[DNS Backup<br/>x86 Server]
-            DNS_M -.sync.-> DNS_B
+            DNS_M -.- DNS_B
         end
         
         subgraph MC_Stack["🎮 Gaming Stack"]
             Proxy[Game Proxy]
-            Game[Game Server<br/>+ Voice Chat]
+            Game1[Game Test Server]
+            Game2[Game Server 2<br/>+ Voice Chat]
             Discord[Discord Bot]
             Backup[Backup Service]
             Restore[Restore Service]
             Storage[(Storage)]
             
-            Proxy --> Game
-            Game --> Discord
-            Game --> Backup
+            Proxy --> Game1
+            Proxy --> Game2
+            Game2 --> Discord
+            Game2 --> Backup
             Backup --> Storage
             Restore --> Storage
-            Restore --> Game
+            Restore --> Game2
         end
         
-        RevProxy[Reverse Proxy]
+        RevProxy[Reverse Proxy<br/>+ Certificate Authority]
         App1[Web Application]
         App2[Map Visualization]
         Files[File Server]
@@ -129,7 +148,7 @@ graph LR
         VPN[VPN]
     end
     
-    Internet --> VPN
+    WAN --> VPN
     Remote --> VPN
     VPN --> Network
     
@@ -137,7 +156,7 @@ graph LR
     Clients --> DNS_M
     Clients --> RevProxy
     
-    Internet --> RevProxy
+    WAN --> RevProxy
     
     RevProxy --> App1
     RevProxy --> App2
@@ -148,10 +167,11 @@ graph LR
     Clients --> MC_Stack
     Clients --> FileShare
     
-    style External fill:#90EE90
-    style DHCP_HA fill:#ffe1e1
-    style DNS_HA fill:#e1f0ff
-    style MC_Stack fill:#f5e1ff
+    style External fill:#90EE90,stroke:#388e3c,stroke-width:2px,color:#000
+    style DHCP_HA fill:#ffe1e1,stroke:#d32f2f,stroke-width:2px,color:#000
+    style DNS_HA fill:#e1f0ff,stroke:#1976d2,stroke-width:2px,color:#000
+    style MC_Stack fill:#f5e1ff,stroke:#7b1fa2,stroke-width:2px,color:#000
+    style Network fill:#f9f9f9,stroke:#666,stroke-width:2px,color:#000
 ```
 
 ## 4. Service Details
@@ -178,7 +198,8 @@ graph LR
 
 | Service | Machine | Description |
 |---------|---------|-------------|
-| **Game Server** | x86 Server | Main Minecraft server |
+| **Game Server 1** | x86 Server | Tests Minecraft server |
+| **Game Server 2** | x86 Server | Main Minecraft server |
 | **Voice Chat** | x86 Server | Integrated voice plugin |
 | **Game Proxy** | x86 Server | Connection proxy |
 | **Discord Bot** | x86 Server | Discord integration |
@@ -212,6 +233,7 @@ graph LR
 ## 5. Storage Architecture
 
 ```mermaid
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#e1f5ff','primaryTextColor':'#000','primaryBorderColor':'#0288d1','lineColor':'#555','secondaryColor':'#90EE90','tertiaryColor':'#FFD700','noteTextColor':'#000'}}}%%
 graph TB
     subgraph Storage["💾 Storage Architecture"]
         Fast[Fast Storage<br/>System + Apps]
@@ -232,9 +254,11 @@ graph TB
         Mass --> Mass_Data
     end
     
-    style Storage fill:#e1f5ff
-    style Fast fill:#90EE90
-    style Mass fill:#FFD700
+    style Storage fill:#e1f5ff,stroke:#0288d1,stroke-width:2px,color:#000
+    style Fast fill:#90EE90,stroke:#388e3c,stroke-width:2px,color:#000
+    style Mass fill:#FFD700,stroke:#f57f17,stroke-width:2px,color:#000
+    style Fast_Data fill:#c8e6c9,stroke:#388e3c,color:#000
+    style Mass_Data fill:#fff9c4,stroke:#f57f17,color:#000
 ```
 
 ## 6. High Availability
@@ -256,7 +280,7 @@ graph TB
 ### Containerization
 - **Orchestration**: Docker Compose
 - **All services**: Deployed as containers
-- **Management**: Via Docker `compose.yml` files
+- **Management**: Via docker-compose.yml files
 
 ### Servers
 - **Main Server (x86-64)**: Hosts majority of services
