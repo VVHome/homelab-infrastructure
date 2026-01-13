@@ -43,43 +43,44 @@ graph TB
 
 ```mermaid
 %%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#e1f5ff','primaryTextColor':'#000','primaryBorderColor':'#0288d1','lineColor':'#555','secondaryColor':'#ffe1f5','tertiaryColor':'#fff4e1','noteTextColor':'#000'}}}%%
-graph TB
+graph 
     subgraph Server1["🖥️ Main Server (x86-64)"]
-        direction TB
-        D1[DHCP - Backup]
-        D2[DNS - Backup]
-        D3[Reverse Proxy]
-        D4[Game Proxy]
-        D5[Discord Bot]
-        D6[Backup Service]
-        D7[Restore Service]
-        D8[VPN]
-        D9[File Sharing]
-        D10[Monitoring]
-        D11[Mass Storage]
-        D12[Fast Storage]
+        direction LR
+        D1[<a href="https://gitlab.isc.org/isc-projects/kea">DHCP</a> - Backup]
+        D2[<a href="https://github.com/AdguardTeam/AdGuardHome">DNS</a> - Backup]
+        D3[<a href="https://github.com/caddyserver/caddy">Caddy Reverse Proxy</a>]
+        D8[<a href="https://github.com/wg-easy/wg-easy">WireGuard VPN</a>]
+        D9[<a href="https://gitlab.com/samba-team/samba">SMB Server</a><br/>+ Time Machine]
+        D10[<a href="https://github.com/louislam/uptime-kuma">Monitoring</a>]
+
+        subgraph MC_Stack["🎮 Gaming Stack"]
+            D4[<a href="https://github.com/papermc/velocity">Velocity Proxy</a>]
+            D5[<a href="https://github.com/Vianpyro/OxideVault">Discord Bot</a>]
+            D6[<a href="https://github.com/itzg/docker-mc-backup">Backup Service</a>]
+            D7[<a href="https://github.com/itzg/docker-mc-backup">Restore Service</a>]
+
+            subgraph Services2["🌳 Minecraft Servers"]
+                M1[<a href="https://github.com/itzg/docker-minecraft-server">Minecraft Test Server</a>]
+                M2[<a href="https://github.com/itzg/docker-minecraft-server">Minecraft Main Server</a>]
+            end
+        end
+
+        subgraph Services1["🌐 Exposed Web Services"]
+            W1[<a href="https://github.com/Vianpyro/Penny-Game">Penny Game</a> - Web App]
+            W2[<a href="https://github.com/granny/Pl3xMap">Pl3xmap</a> - Minecraft Map]
+            W3[File Server<br/>with authentication]
+        end
+        
+        subgraph Future["📅 Future Services"]
+            F1[SSO Authentication]
+            F2[Personal Cloud]
+        end
     end
     
     subgraph Server2["🔶 ARM Server (SBC)"]
         direction TB
-        O1[DHCP - Master]
-        O2[DNS - Master]
-    end
-    
-    subgraph Services1["🌐 Exposed Web Services"]
-        W1[Penny Game - Web App]
-        W2[Pl3xmap - Minecraft Map]
-        W3[File Server<br/>with authentication]
-    end
-    
-    subgraph Services2["🌐 Exposed Minecraft Servers"]
-        M1[Minecraft Server 1]
-        M2[Minecraft Server 2]
-    end
-    
-    subgraph Future["📅 Future Services"]
-        F1[SSO Authentication]
-        F2[Personal Cloud]
+        O1[<a href="https://gitlab.isc.org/isc-projects/kea">DHCP</a> - Master]
+        O2[<a href="https://github.com/AdguardTeam/AdGuardHome">DNS</a> - Master]
     end
     
     D3 --> W1
@@ -89,10 +90,13 @@ graph TB
     D4 --> M1
     D4 --> M2
     
+    M2 --> D6
+    D7 --> M2
+
     style Server1 fill:#e1f5ff,stroke:#0288d1,stroke-width:2px,color:#000
     style Server2 fill:#ffe1f5,stroke:#c2185b,stroke-width:2px,color:#000
     style Services1 fill:#fff4e1,stroke:#f57c00,stroke-width:2px,color:#000
-    style Services2 fill:#fff4e1,stroke:#f57c00,stroke-width:2px,color:#000
+    style MC_Stack fill:#fff4e1,stroke:#f57c00,stroke-width:2px,color:#000
     style Future fill:#f0f0f0,stroke:#666,stroke-width:2px,stroke-dasharray: 5 5,color:#000
 ```
 
@@ -110,12 +114,14 @@ graph LR
         Clients[Network Clients]
         
         subgraph DHCP_HA["⚡ DHCP High Availability"]
+            direction LR
             DHCP_M[DHCP Master<br/>ARM Server]
             DHCP_B[DHCP Backup<br/>x86 Server]
             DHCP_M <-.sync.-> DHCP_B
         end
         
         subgraph DNS_HA["🔍 DNS High Availability"]
+            direction LR
             DNS_M[DNS Master<br/>ARM Server]
             DNS_B[DNS Backup<br/>x86 Server]
             DNS_M -.- DNS_B
@@ -123,50 +129,52 @@ graph LR
         
         subgraph MC_Stack["🎮 Gaming Stack"]
             Proxy[Game Proxy]
-            Game1[Game Test Server]
-            Game2[Game Server 2<br/>+ Voice Chat]
+            
+            subgraph Services2["🌳 Minecraft Servers"]
+                M1[Minecraft Test Server]
+                M2[Minecraft Main Server<br/>+ Voice Chat]
+            end
+
             Discord[Discord Bot]
             Backup[Backup Service]
             Restore[Restore Service]
-            Storage[(Storage)]
-            
-            Proxy --> Game1
-            Proxy --> Game2
-            Game2 --> Discord
-            Game2 --> Backup
-            Backup --> Storage
-            Restore --> Storage
-            Restore --> Game2
+            StorageSSD[(Fast Storage)]
+            StorageHDD[(Long Term Storage)]
         end
         
         RevProxy[Reverse Proxy<br/>+ Certificate Authority]
+        Files[File Server]
         App1[Web Application]
         App2[Map Visualization]
-        Files[File Server]
         
-        FileShare[Network Share]
         VPN[VPN]
     end
     
-    WAN --> VPN
     Remote --> VPN
-    VPN --> Network
+    VPN -.-> Clients
     
-    Clients --> DHCP_M
-    Clients --> DNS_M
-    Clients --> RevProxy
+    Files -.auth.-> StorageHDD
+    
+    Clients --> DHCP_HA
+    Clients --> DNS_HA
     
     WAN --> RevProxy
+    WAN --> Proxy
     
+    RevProxy --> Files
     RevProxy --> App1
     RevProxy --> App2
-    RevProxy --> Files
     
-    Files -.auth.-> Storage
-    
-    Clients --> MC_Stack
-    Clients --> FileShare
-    
+    Proxy --> M1
+    Proxy --> M2
+    M2 --> Discord
+    M2 --> Backup
+    Backup --> StorageSSD
+    Restore --> StorageSSD
+    Restore --> M2
+
+    StorageSSD -.backup.-> StorageHDD
+
     style External fill:#90EE90,stroke:#388e3c,stroke-width:2px,color:#000
     style DHCP_HA fill:#ffe1e1,stroke:#d32f2f,stroke-width:2px,color:#000
     style DNS_HA fill:#e1f0ff,stroke:#1976d2,stroke-width:2px,color:#000
