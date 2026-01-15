@@ -48,7 +48,6 @@ graph
         direction LR
         D1[<a href="https://gitlab.isc.org/isc-projects/kea">DHCP</a> - Backup]
         D2[<a href="https://github.com/AdguardTeam/AdGuardHome">DNS</a> - Backup]
-        D3[<a href="https://github.com/caddyserver/caddy">Caddy Reverse Proxy</a>]
         D8[<a href="https://github.com/wg-easy/wg-easy">WireGuard VPN</a>]
         D9[<a href="https://gitlab.com/samba-team/samba">SMB Server</a><br/>+ Time Machine]
         D10[<a href="https://github.com/louislam/uptime-kuma">Monitoring</a>]
@@ -66,14 +65,22 @@ graph
         end
 
         subgraph Services1["🌐 Exposed Web Services"]
+            D3[<a href="https://github.com/caddyserver/caddy">Caddy Reverse Proxy</a>]
             W1[<a href="https://github.com/Vianpyro/Penny-Game">Penny Game</a> - Web App]
             W2[<a href="https://github.com/granny/Pl3xMap">Pl3xmap</a> - Minecraft Map]
             W3[File Server<br/>with authentication]
         end
-        
+
+        subgraph NC_Stack["☁️ Personal Cloud"]
+            direction LR
+            MariaDB[<a href="https://github.com/MariaDB/mariadb-docker">Metadata Storage</a>]
+            Redis[<a href="">Cache</a>]
+            Cloud[<a href="https://github.com/nextcloud/all-in-one">Cloud</a>]
+            CronManager[<a href="https://github.com/nextcloud/all-in-one">Cron Manager</a>]
+        end
+
         subgraph Future["📅 Future Services"]
             F1[SSO Authentication]
-            F2[Personal Cloud]
         end
     end
     
@@ -93,10 +100,15 @@ graph
     M2 --> D6
     D7 --> M2
 
+    MariaDB --> Cloud
+    Redis --> Cloud
+    Cloud -.- CronManager
+
     style Server1 fill:#e1f5ff,stroke:#0288d1,stroke-width:2px,color:#000
     style Server2 fill:#ffe1f5,stroke:#c2185b,stroke-width:2px,color:#000
     style Services1 fill:#fff4e1,stroke:#f57c00,stroke-width:2px,color:#000
     style MC_Stack fill:#fff4e1,stroke:#f57c00,stroke-width:2px,color:#000
+    style NC_Stack fill:#fff4e1,stroke:#f57c00,stroke-width:2px,color:#000
     style Future fill:#f0f0f0,stroke:#666,stroke-width:2px,stroke-dasharray: 5 5,color:#000
 ```
 
