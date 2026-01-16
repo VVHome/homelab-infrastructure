@@ -51,6 +51,7 @@ graph
         D8[<a href="https://github.com/wg-easy/wg-easy">WireGuard VPN</a>]
         D9[<a href="https://gitlab.com/samba-team/samba">SMB Server</a><br/>+ Time Machine]
         D10[<a href="https://github.com/louislam/uptime-kuma">Monitoring</a>]
+        JellyFin[<a href="https://github.com/jellyfin/jellyfin">Media Server</a>]
 
         subgraph MC_Stack["🎮 Gaming Stack"]
             D4[<a href="https://github.com/papermc/velocity">Velocity Proxy</a>]
@@ -103,6 +104,7 @@ graph
     MariaDB --> Cloud
     Redis --> Cloud
     Cloud -.- CronManager
+    Cloud --> JellyFin
 
     style Server1 fill:#e1f5ff,stroke:#0288d1,stroke-width:2px,color:#000
     style Server2 fill:#ffe1f5,stroke:#c2185b,stroke-width:2px,color:#000
