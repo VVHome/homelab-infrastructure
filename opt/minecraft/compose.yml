@@ -1,0 +1,271 @@
+services:
+  velocity:
+    image: itzg/mc-proxy
+    container_name: velocity-proxy
+    user: "1001:1009"
+    environment:
+      TZ: America/Montreal
+      TYPE: VELOCITY
+      MEMORY: 512M
+      MODRINTH_PROJECTS: |
+        simple-voice-chat:alpha
+      MINECRAFT_VERSION: "1.21.11"
+    ports:
+      - "25565:25577/tcp"  # Minecraft server
+      - "25565:25577/udp"  # Simple Voice Chat
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 768M
+        reservations:
+          cpus: '0.1'
+          memory: 512M
+    volumes:
+      - ./velocity:/server
+    restart: unless-stopped
+
+  vhome-smp:
+    image: itzg/minecraft-server:latest
+    pull_policy: daily
+    container_name: vhome-smp
+    user: "1001:1009"
+    tty: true
+    stdin_open: true
+    depends_on:
+      velocity:
+        condition: service_healthy
+      vhome-smp-restore-backups:
+        condition: service_completed_successfully
+    ports:
+#      - "24454:24454/udp"  # Simple Voice Chat
+#      - "25565:25565/tcp"  # Minecraft server
+      - "27565:8080/tcp"   # Pl3xmap web server
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 10G
+        reservations:
+          cpus: '0.1'
+          memory: 6G
+    environment:
+      TZ: America/Montreal
+      EULA: "TRUE"
+      ONLINE_MODE: "FALSE"
+      TYPE: "PAPER"
+      MODRINTH_PROJECTS: |
+        chunky
+        pl3xmap:beta
+        simple-voice-chat
+      USES_PLUGINS: true
+      MEMORY: "6144M"
+      MAX_PLAYERS: "7"
+      MOTD: "VHome Forever SMP"
+      USE_AIKAR_FLAGS: "true"
+      USE_MEOWICE_FLAGS: "true"
+      SEED: "3998850358082824288"
+      DIFFICULTY: "3"
+      FORCE_GAMEMODE: "true"
+      ENTITY_BROADCAST_RANGE_PERCENTAGE: "80"
+      SIMULATION_DISTANCE: "6"
+      SPAWN_PROTECTION: "0"
+      MAX_WORLD_SIZE: "12500"
+      GENERATE_LOG4J2_CONFIG: "true"
+      RCON_CMDS_STARTUP:  |-
+        chunky radius 5000
+        chunky start world circle
+        chunky quiet 60
+      RCON_CMDS_FIRST_CONNECT: |-
+        chunky pause
+      RCON_CMDS_ON_CONNECT: |-
+        bossbar set minecraft:server_cash_goal players @a
+      RCON_CMDS_LAST_DISCONNECT: |-
+        kill @e[type=#minecraft:boat,nbt=!{Passengers:[{}]}]
+        scoreboard players reset * tpa.pid
+        chunky continue
+      OPS: |-
+        Vianpyro
+      ENABLE_WHITELIST: "true"
+      WHITELIST: |-
+        Vianpyro
+      EXISTING_WHITELIST_FILE: "MERGE"
+      ENABLE_ROLLING_LOGS: "true"
+      LOG_TIMESTAMP: "true"
+    volumes:
+      - ./vhome-smp:/data
+    restart: unless-stopped
+
+  vhome-smp-backups:
+    image: itzg/mc-backup
+    container_name: vhome-smp-backups
+    user: "1001:1009"
+    depends_on:
+      vhome-smp:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+    environment:
+      TZ: America/Montreal
+      BACKUP_NAME: vhome_smp
+      BACKUP_INTERVAL: "2h"
+      PRUNE_BACKUPS_COUNT: 20
+      PRUNE_BACKUPS_DAYS: 30
+      INITIAL_DELAY: 15m
+      RCON_HOST: vhome-smp
+      PAUSE_IF_NO_PLAYERS: true
+      PLAYERS_ONLINE_CHECK_INTERVAL: 5m
+      EXCLUDES_FILE: /config/excludes.txt
+      PRE_SAVE_ALL_SCRIPT: |
+        rcon-cli tellraw @a '{"text":"[","color":"dark_gray","extra":[{"text":"Backup","color":"gray"},{"text":"] ","color":"dark_gray"},{"text":"Server backup starting - expect brief lag!","color":"yellow"}]}'
+      POST_BACKUP_SCRIPT: |
+        rcon-cli tellraw @a '{"text":"[","color":"dark_gray","extra":[{"text":"Backup","color":"gray"},{"text":"] ","color":"dark_gray"},{"text":"Backup complete! If you experience lag, contact the admin.","color":"green"}]}'
+#        if [ $$1 -eq 0 ]; then
+#          rcon-cli tellraw @a '{"text":"[","color":"dark_gray","extra":[{"text":"Backup","color":"gray"},{"text":"] ","color":"dark_gray"},{"text":"Backup complete! If you experience lag, contact the admin.","color":"green"}]}'
+#        else
+#          rcon-cli tellraw @a '{"text":"[","color":"dark_gray","extra":[{"text":"Backup","color":"gray"},{"text":"] ","color":"dark_gray"},{"text":"Backup failed! Please contact the admin immediately.","color":"red"}]}'
+#        fi
+    volumes:
+      - ./vhome-smp:/data:ro
+      - ./backups:/backups
+    configs:
+      - source: excludes
+        target: /config/excludes.txt
+
+  vhome-smp-restore-backups:
+    image: itzg/mc-backup
+    container_name: vhome-smp-restore
+    user: "1001:1009"
+    restart: "no"
+    entrypoint: restore-tar-backup
+    environment:
+      TZ: America/Montreal
+    volumes:
+      - ./vhome-smp:/data
+      - ./backups:/backups:ro
+
+  oxidevault:
+    #profiles:
+    #  - donotstart
+    image: ghcr.io/vianpyro/oxidevault:latest
+    pull_policy: always
+    container_name: oxidevault
+    depends_on:
+      vhome-smp:
+        condition: service_healthy
+    user: "1001:1001"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 64M
+    environment:
+      DISCORD_TOKEN: "${DISCORD_TOKEN}"
+      MC_SERVER_ADDRESS: "vhome-smp:25565"
+      BACKUP_FOLDER: "/backups"
+      BACKUP_PUBLIC_BASE_URL: "https://greenland.myddns.me/vhome-smp_backups/"
+    volumes:
+      - ./backups:/backups
+      - ./vhome-smp:/minecraft:ro
+      - ./oxidevault:/data
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:alpine
+    pull_policy: daily
+    user: "1001:1009"
+    container_name: caddy-backups
+    ports:
+      - "8080:80"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 128M
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - /mnt/encrypted_share/users/minecraft/vhome-smp:/backups/vhome-smp:ro
+      - ./backups/public:/backups/public:ro
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,size=64m
+    cap_drop:
+      - NET_RAW
+      - SYS_PTRACE
+      - SYS_ADMIN
+
+  vhome-creative:
+    image: itzg/minecraft-server:latest
+    tty: true
+    stdin_open: true
+    environment:
+      EULA: "TRUE"
+      TYPE: "FABRIC"
+      MEMORY: "10240M"
+      MAX_PLAYERS: "10"
+      USE_AIKAR_FLAGS: "true"
+      USE_MEOWICE_FLAGS: "true"
+      TZ: "America/Toronto"
+      DIFFICULTY: "3"
+      PVP: "false"
+      MODE: "1"
+      FORCE_GAMEMODE: "true"
+      ENABLE_COMMAND_BLOCK: "true"
+      SEED: "3998850358082824288"
+      LEVEL_TYPE: "flat"
+      GENERATE_STRUCTURES: "false"
+      SPAWN_PROTECTION: "0"
+      MAX_WORLD_SIZE: "12500"
+      OPS: |-
+        Vianpyro
+        Maxiboom0
+      ENABLE_WHITELIST: "true"
+      WHITELIST: |-
+        Vianpyro
+        Maxiboom0
+      MODRINTH_PROJECTS: |-
+        axiom
+        worldedit
+      MODRINTH_DOWNLOAD_DEPENDENCIES: "required"
+      PLAYER_IDLE_TIMEOUT: "360"
+      OP_PERMISSION_LEVEL: "3"
+    volumes:
+      - "./creative:/data"
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+configs:
+  excludes:
+    content: |
+      usercache.json
+      help.yml
+      ops.json
+      .*-manifest.json
+      .*.env
+      .rcon*
+      plugins/.paper-remapped
+      plugins/Chunky
+      plugins/spark/tmp*
+      plugins/bStats
+      eula.txt
+      .console_history
+      crash-reports
+      .cache
+      libraries
+      *.jar
+      cache
+      logs
+      *.tmp
+      ./plugins/Pl3xMap/web/*
+      *.env
+      log4j2.xml
